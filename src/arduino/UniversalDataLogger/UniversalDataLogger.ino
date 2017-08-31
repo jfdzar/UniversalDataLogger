@@ -23,14 +23,15 @@ Digital Signals Read rising edges every 500 ms
 #include <util/delay.h>
 //Storage Variables
 
-volatile long int analog_values[11];
-volatile int analog_counters[11];
+#define MOVING_AVERAGE_SIZE 10
+
+volatile int analog_values[4][MOVING_AVERAGE_SIZE];
+volatile int analog_means[4];
 
 
 void setup_timer0(){
 	/*TIMER 0 Interrupt at 2kHz*/
 	//Set TCR0A and B to 0
-
 	TCCR0A = 0;
 	TCCR0B = 0;
 	//Initialize the counter
@@ -49,10 +50,10 @@ void setup_timer1(){
 	TCCR1B = 0;
 	//Initialize the counter
 	TCNT1 = 0;
-	//Set Compare Match Register A 1Hz
+	//Set Compare Match Register A 1Hz 15624 * 1024/16000000 = 1 s = 1000 ms
 	OCR1A = 15624;
-	//Set Compare Match Regigister B 200ms = 5Hz
-	OCR1B = 1561;
+	//Set Compare Match Regigister B 10ms 156 * 1024/16000000 = 0.01 s = 10 ms
+	OCR1B = 156;
 	//Turn on CTC mode
 	TCCR1B |= (1<<WGM12);
 	//SEt prescaler to 1024
@@ -62,21 +63,17 @@ void setup_timer1(){
 }
 
 void setup(){
+	//Initialize Serial Communication
+	Serial.begin(9600);
+	//Define Ports
 	pinMode(13,OUTPUT);
 	pinMode(9,OUTPUT);
-
-	Serial.begin(9600);
-
-
+	//Setup the timer interruptions
 	cli();
-
 	setup_timer0();
 	setup_timer1();
-
 	sei();
 }
-
-
 
 
 void loop(){
@@ -100,28 +97,29 @@ void loop(){
 
 
 ISR(TIMER1_COMPA_vect){
-	int state = digitalRead(13);
-	state = !state;
-	digitalWrite(13,state);
-
-	digitalWrite(9,LOW);
-	Serial.println("On/off");
+	bool a = False;
 }
 
 ISR(TIMER1_COMPB_vect){
-	digitalWrite(9,HIGH);
-	/*
-	int state1 = digitalRead(9);
-	state1 = !state1;
-	digitalWrite(9,state1);
-	*/
+	//Read the new value of the analog input as first element of the array and move the rest forward
+	for (int i=0; i < 4 ; i++){
+		for (int j=MOVING_AVERAGE_SIZE-1; j == 1; j--){
+			analog_values[i][j] = analog_values[i][j-1];
+		}
+	    analog_values[i][0] = analogRead(i);
+	}
+	//Calculate the average of every analog signal and save it in the array
+	for (int i=0; i < 4 ; i++){
+		long int sum = 0;
+			for (int j=0; j < MOVING_AVERAGE_SIZE; j++){
+				sum = sum + analog_values[i][j];
+			}
+			analog_means[i] = int(sum / MOVING_AVERAGE_SIZE);
+	}
+
 }
 
 ISR(TIMER0_COMPA_vect){
-  if(!(analogRead(0) > 0)){
-    int state1 = digitalRead(9);
-    state1 = !state1;
-    digitalWrite(9,state1);
-  }
+	bool b = False;
 }
 
