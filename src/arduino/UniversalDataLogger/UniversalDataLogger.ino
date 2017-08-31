@@ -1,54 +1,127 @@
 /*
-  Analog input, analog output, serial output
 
- Reads an analog input pin, maps the result to a range from 0 to 255
- and uses the result to set the pulsewidth modulation (PWM) of an output pin.
- Also prints the results to the serial monitor.
+UniversalDataLogger for Arduino
+Created by @Jfdzar 31.08.2017
 
- The circuit:
- * potentiometer connected to analog pin 0.
-   Center pin of the potentiometer goes to the analog pin.
-   side pins of the potentiometer go to +5V and ground
- * LED connected from digital pin 9 to ground
+The program reads different signals from Arduino UNO Board and send it through the serial port
 
- created 29 Dec. 2008
- modified 9 Apr 2012
- by Tom Igoe
+Following Signals
+Analog Signals
+- A0
+- A1
+- A2
+- A3
 
- This example code is in the public domain.
+Digital Signals Read rising edges every 500 ms
+
+- 3
+- 4
+- 6
 
  */
 
-// These constants won't change.  They're used to give names
-// to the pins used:
-const int analogInPin = A0;  // Analog input pin that the potentiometer is attached to
-const int analogOutPin = 9; // Analog output pin that the LED is attached to
+#include <util/delay.h>
+//Storage Variables
 
-int sensorValue = 0;        // value read from the pot
-int outputValue = 0;        // value output to the PWM (analog out)
+volatile long int analog_values[11];
+volatile int analog_counters[11];
 
-void setup() {
-  // initialize serial communications at 9600 bps:
-  Serial.begin(9600);
+
+void setup_timer0(){
+	/*TIMER 0 Interrupt at 2kHz*/
+	//Set TCR0A and B to 0
+
+	TCCR0A = 0;
+	TCCR0B = 0;
+	//Initialize the counter
+	TCNT0 = 0;
+	//Set compare match register for 2Khz
+	OCR0A = 100;
+	TCCR0A |= (1<<WGM01);
+	TCCR0B |= (1<<CS12) | (1<<CS10);
+	TIMSK0 |= (1<<OCIE0A);
 }
 
-void loop() {
-  // read the analog in value:
-  sensorValue = analogRead(analogInPin);
-  
-  // map it to the range of the analog out:
-  outputValue = map(sensorValue, 0, 1023, 0, 255);
-  // change the analog out value:
-  analogWrite(analogOutPin, outputValue);
-
-  // print the results to the serial monitor:
-  Serial.print("sensor = ");
-  Serial.print(sensorValue);
-  Serial.print("\t output = ");
-  Serial.println(outputValue);
-
-  // wait 2 milliseconds before the next loop
-  // for the analog-to-digital converter to settle
-  // after the last reading:
-  delay(2);
+void setup_timer1(){
+	/*TIMER 1*/
+	//Set TCCR1A and B to 0
+	TCCR1A = 0;
+	TCCR1B = 0;
+	//Initialize the counter
+	TCNT1 = 0;
+	//Set Compare Match Register A 1Hz
+	OCR1A = 15624;
+	//Set Compare Match Regigister B 200ms = 5Hz
+	OCR1B = 1561;
+	//Turn on CTC mode
+	TCCR1B |= (1<<WGM12);
+	//SEt prescaler to 1024
+	TCCR1B |= (1<<CS12) | (1<<CS10);
+	//enable timer compare interrupt
+	TIMSK1 |= (1<<OCIE1A) | (1<<OCIE1B) ;
 }
+
+void setup(){
+	pinMode(13,OUTPUT);
+	pinMode(9,OUTPUT);
+
+	Serial.begin(9600);
+
+
+	cli();
+
+	setup_timer0();
+	setup_timer1();
+
+	sei();
+}
+
+
+
+
+void loop(){
+	long int timer_init = 0;
+	timer_init = millis();
+
+	while(1){
+
+		if (millis() - timer_init > 500){
+			//Every 500 ms build msg and send the command
+
+		}
+
+	}
+
+	Serial.println("Program Running....");
+	Serial.println(analogRead(0));
+	_delay_ms(2000);
+}
+
+
+
+ISR(TIMER1_COMPA_vect){
+	int state = digitalRead(13);
+	state = !state;
+	digitalWrite(13,state);
+
+	digitalWrite(9,LOW);
+	Serial.println("On/off");
+}
+
+ISR(TIMER1_COMPB_vect){
+	digitalWrite(9,HIGH);
+	/*
+	int state1 = digitalRead(9);
+	state1 = !state1;
+	digitalWrite(9,state1);
+	*/
+}
+
+ISR(TIMER0_COMPA_vect){
+  if(!(analogRead(0) > 0)){
+    int state1 = digitalRead(9);
+    state1 = !state1;
+    digitalWrite(9,state1);
+  }
+}
+
