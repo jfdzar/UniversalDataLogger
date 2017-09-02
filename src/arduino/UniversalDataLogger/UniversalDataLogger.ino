@@ -21,57 +21,35 @@ Digital Signals Read rising edges every 500 ms
  */
 
 #include <util/delay.h>
+#include "UniversalDataLogger.h"
 //Storage Variables
 
-#define MOVING_AVERAGE_SIZE 10
+#define LOGGING_RATE 500 //Logging Rate in ms
+#define FREQUENCY_TIMER_1A 1 //Frequency in Hz
+#define FREQUENCY_TIMER_1B 100 //Frequency in Hz
+#define PRESCALER 1024 //Prescaler of Timer_1
+#define CLK_FREQUENCY 16000000
+//Moving Average is calculated by (LOGGING_RATE*FREQUENCY_TIMER_1B)/1000
+#define MOVING_AVERAGE_SIZE 50
+
 
 volatile int analog_values[4][MOVING_AVERAGE_SIZE];
 volatile int analog_means[4];
-
-
-void setup_timer0(){
-	/*TIMER 0 Interrupt at 2kHz*/
-	//Set TCR0A and B to 0
-	TCCR0A = 0;
-	TCCR0B = 0;
-	//Initialize the counter
-	TCNT0 = 0;
-	//Set compare match register for 2Khz
-	OCR0A = 100;
-	TCCR0A |= (1<<WGM01);
-	TCCR0B |= (1<<CS12) | (1<<CS10);
-	TIMSK0 |= (1<<OCIE0A);
-}
-
-void setup_timer1(){
-	/*TIMER 1*/
-	//Set TCCR1A and B to 0
-	TCCR1A = 0;
-	TCCR1B = 0;
-	//Initialize the counter
-	TCNT1 = 0;
-	//Set Compare Match Register A 1Hz 15624 * 1024/16000000 = 1 s = 1000 ms
-	OCR1A = 15624;
-	//Set Compare Match Regigister B 10ms 156 * 1024/16000000 = 0.01 s = 10 ms
-	OCR1B = 156;
-	//Turn on CTC mode
-	TCCR1B |= (1<<WGM12);
-	//SEt prescaler to 1024
-	TCCR1B |= (1<<CS12) | (1<<CS10);
-	//enable timer compare interrupt
-	TIMSK1 |= (1<<OCIE1A) | (1<<OCIE1B) ;
-}
+volatile int led_state = 0;
 
 void setup(){
 	//Initialize Serial Communication
 	Serial.begin(9600);
 	//Define Ports
 	pinMode(13,OUTPUT);
-	pinMode(9,OUTPUT);
+  pinMode(9,OUTPUT);
 	//Setup the timer interruptions
 	cli();
-	setup_timer0();
 	setup_timer1();
+	//Set Compare Match Register A 1Hz 15624 * 1024/16000000 = 1 s = 1000 ms (OCR1A = 15624;)
+	OCR1A = int(CLK_FREQUENCY/FREQUENCY_TIMER_1A/PRESCALER);
+	//Set Compare Match Regigister B 10ms 156 * 1024/16000000 = 0.01 s = 10 ms (OCR1B = 156;)
+	OCR1B = int(CLK_FREQUENCY/FREQUENCY_TIMER_1B/PRESCALER);
 	sei();
 }
 
@@ -82,23 +60,22 @@ void loop(){
 
 	while(1){
 
-		if (millis() - timer_init > 500){
-			//Every 500 ms build msg and send the command
-
+		if (millis() - timer_init > LOGGING_RATE){
+			//Every LOGGIN_RATE ms build Msg and send the command
+			String Msg = "";
+			for (int i=0; i < 4 ; i++){
+				Msg = Msg + String(analog_means[i]) + String(";");
+			}
+			Msg = Msg + String("OK");
+			Serial.println(Msg);
+			timer_init = millis();
 		}
 
 	}
-
-	Serial.println("Program Running....");
-	Serial.println(analogRead(0));
-	_delay_ms(2000);
 }
 
 
 
-ISR(TIMER1_COMPA_vect){
-	bool a = False;
-}
 
 ISR(TIMER1_COMPB_vect){
 	//Read the new value of the analog input as first element of the array and move the rest forward
@@ -115,11 +92,29 @@ ISR(TIMER1_COMPB_vect){
 				sum = sum + analog_values[i][j];
 			}
 			analog_means[i] = int(sum / MOVING_AVERAGE_SIZE);
+      analog_means[i] = analog_values[i][1];
 	}
 
+ if (led_state == 0) {
+  digitalWrite(13,1);
+  led_state = 1;
+ }
+ else{
+  digitalWrite(13,0);
+  led_state = 0;
+ }
+ TCNT1 = 0;
+ 
+
+}
+/*
+ISR(TIMER0_COMPA_vect){
+	bool b = 0;
 }
 
-ISR(TIMER0_COMPA_vect){
-	bool b = False;
+ISR(TIMER1_COMPA_vect){
+  bool a = 0;
 }
+
+*/
 
