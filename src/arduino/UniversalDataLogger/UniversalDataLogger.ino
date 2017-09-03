@@ -57,9 +57,8 @@ void setup(){
 
 
 void loop(){
-	long int timer_init = 0;
+  unsigned long timer_init = 0;
 	timer_init = millis();
-	Serial.println("Start Loop");
 	int di_status[DIGITAL_INPUTS] = {0,0,0};
 	int di_old_status[DIGITAL_INPUTS] = {0,0,0};
 	int di_counter[DIGITAL_INPUTS] = {0,0,0};;
