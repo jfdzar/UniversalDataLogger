@@ -89,7 +89,7 @@ void loop(){
 				Msg = Msg + String(analog_means[i]) + String(";");
 			}
 			for (int i=0; i < DIGITAL_INPUTS ; i++){
-				Msg = Msg + String(int(1000*di_counter[i]/LOGGING_RATE/2)) + String(";");
+				Msg = Msg + String(int(1000*di_counter[i]/LOGGING_RATE)) + String(";");
         di_counter[i] = 0;
 			}
 			Msg = Msg + String("OK");
@@ -105,15 +105,15 @@ ISR(PCINT2_vect){
 
 	uint8_t pin_status;
 	pin_status = PIND;
-	if(pin_status | (1 << PIND5))
+	if(pin_status & (1 << PIND5))
 	{
 		di_counter[0] = di_counter[0] + 1;
 	}
-	if(pin_status | (1 << PIND6))
+	if(pin_status & (1 << PIND6))
 	{
 		di_counter[1] = di_counter[1] + 1;
 	}
-	if(pin_status | (1 << PIND7))
+	if(pin_status & (1 << PIND7))
 	{
 		di_counter[2] = di_counter[2] + 1;
 	}
