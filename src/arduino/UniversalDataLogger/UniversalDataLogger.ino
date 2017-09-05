@@ -37,7 +37,10 @@ Digital Signals Read the frequency in Hz (rising edges) every LOGGIN_RATE inverv
 
 volatile int analog_values[ANALOG_INPUTS][MOVING_AVERAGE_SIZE];
 volatile int analog_means[ANALOG_INPUTS];
+
+volatile int di_counter[DIGITAL_INPUTS] = {0,0,0};
 volatile int led_state = 0;
+
 
 void setup(){
 	//Initialize Serial Communication
@@ -52,6 +55,8 @@ void setup(){
 	setup_timer1();
 	//Set Compare Match Regigister B 10ms 156 * 1024/16000000 = 0.01 s = 10 ms (OCR1B = 156;)
 	OCR1B = int(CLK_FREQUENCY/FREQUENCY_TIMER_1B/PRESCALER);
+
+	setup_pcint2();
 	sei();
 }
 
@@ -61,9 +66,9 @@ void loop(){
 	timer_init = millis();
 	int di_status[DIGITAL_INPUTS] = {0,0,0};
 	int di_old_status[DIGITAL_INPUTS] = {0,0,0};
-	int di_counter[DIGITAL_INPUTS] = {0,0,0};;
 	while(1){
 
+		/*
 		for (int i=0; i < DIGITAL_INPUTS; i++){
 			di_status[i] = digitalRead(5+i);
 			if (di_status[i] == 1){
@@ -75,7 +80,7 @@ void loop(){
 			else{
 				di_old_status[i] = 0;
 			}
-		}
+		}*/
 
 		if (millis() - timer_init > LOGGING_RATE){
 			//Every LOGGIN_RATE ms build Msg and send the command
@@ -84,7 +89,7 @@ void loop(){
 				Msg = Msg + String(analog_means[i]) + String(";");
 			}
 			for (int i=0; i < DIGITAL_INPUTS ; i++){
-				Msg = Msg + String(int(1000*di_counter[i]/LOGGING_RATE)) + String(";");
+				Msg = Msg + String(int(1000*di_counter[i]/LOGGING_RATE/2)) + String(";");
         di_counter[i] = 0;
 			}
 			Msg = Msg + String("OK");
@@ -95,6 +100,33 @@ void loop(){
 	}
 }
 
+
+ISR(PCINT2_vect){
+
+	uint8_t pin_status;
+	pin_status = PIND;
+	if(pin_status | (1 << PIND5))
+	{
+		di_counter[0] = di_counter[0] + 1;
+	}
+	if(pin_status | (1 << PIND6))
+	{
+		di_counter[1] = di_counter[1] + 1;
+	}
+	if(pin_status | (1 << PIND7))
+	{
+		di_counter[2] = di_counter[2] + 1;
+	}
+
+	if (led_state){
+		digitalWrite(13,LOW);
+		led_state = 0;
+	}
+	else{
+		digitalWrite(13,HIGH);
+		led_state = 1;
+	}
+}
 
 
 

@@ -57,6 +57,11 @@ void setup_timer1(){
 }
 
 
+void setup_pcint2(){
+	PCICR |= (1<<PCIE2);
+	PCMSK2 |= (1<<PCINT23) | (1<<PCINT22)| (1<<PCINT21);
+}
+
 
 
 
